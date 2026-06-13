@@ -17,6 +17,7 @@ KERNEL_BASE_CONFIGS = {
     11: {"THREADSX": 8, "THREADSY": 8, "RX": 8, "RY": 4, "WIDTH": 1},
 }
 
+
 def generate_settings_for_kernel(kernel_num):
     cfg = KERNEL_BASE_CONFIGS.get(kernel_num, {"TS": 16, "WIDTH": 1})
 
@@ -103,7 +104,7 @@ def generate_settings_for_kernel(kernel_num):
 #define DIV2(x,y) ((x) / (y))
 
 #ifdef __OPENCL_VERSION__
-  typedef float{"" if width==1 else width} floatX;
+  typedef float{"" if width == 1 else width} floatX;
 #else
   typedef float floatX;
 #endif
@@ -111,6 +112,7 @@ def generate_settings_for_kernel(kernel_num):
 {vector_fix}
 """
     return content
+
 
 def compile_and_run_one(kernel_num, warmup, measure):
     settings_text = generate_settings_for_kernel(kernel_num)
@@ -123,25 +125,39 @@ def compile_and_run_one(kernel_num, warmup, measure):
         f.write(settings_text)
 
     compile_flags = [
-        "-c", "-O3", "-Wall",
+        "-c",
+        "-O3",
+        "-Wall",
         "-I/System/Library/Frameworks/OpenCL.framework/Headers",
-        "-include", "src/settings.h"
+        "-include",
+        "src/settings.h",
     ]
 
-    subprocess.run(["g++"] + compile_flags + ["src/main.cpp", "-o", "obj/main.o"], check=True)
-    subprocess.run(["g++"] + compile_flags + ["src/clGEMM.cpp", "-o", "obj/clGEMM.o"], check=True)
+    subprocess.run(
+        ["g++"] + compile_flags + ["src/main.cpp", "-o", "obj/main.o"], check=True
+    )
+    subprocess.run(
+        ["g++"] + compile_flags + ["src/clGEMM.cpp", "-o", "obj/clGEMM.o"], check=True
+    )
 
     dummy_obj = Path("obj/dummy_libclblas.o")
     if not dummy_obj.exists():
         with open("dummy.cpp", "w") as f:
-            f.write('void libclblas(float*, float*, float*, int, int, int, int) {}\n')
+            f.write("void libclblas(float*, float*, float*, int, int, int, int) {}\n")
         subprocess.run(["g++", "-c", "dummy.cpp", "-o", str(dummy_obj)], check=True)
         os.unlink("dummy.cpp")
 
     link_cmd = [
-        "g++", "-O3", "-Wall",
-        "obj/main.o", "obj/clGEMM.o", str(dummy_obj),
-        "-framework", "OpenCL", "-o", "bin/myGEMM"
+        "g++",
+        "-O3",
+        "-Wall",
+        "obj/main.o",
+        "obj/clGEMM.o",
+        str(dummy_obj),
+        "-framework",
+        "OpenCL",
+        "-o",
+        "bin/myGEMM",
     ]
     subprocess.run(link_cmd, check=True)
 
@@ -149,7 +165,9 @@ def compile_and_run_one(kernel_num, warmup, measure):
     log_dir.mkdir(parents=True, exist_ok=True)
 
     for _ in range(warmup):
-        subprocess.run(["./bin/myGEMM"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            ["./bin/myGEMM"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
 
     for i in range(1, measure + 1):
         log_file = log_dir / f"run_{i}.log"
@@ -157,6 +175,7 @@ def compile_and_run_one(kernel_num, warmup, measure):
             subprocess.run(["./bin/myGEMM"], stdout=f, stderr=subprocess.STDOUT)
         print(f" Kernel {kernel_num}: run {i}/{measure} is done", end="\r")
     print(f"\n Kernel {kernel_num} finished")
+
 
 def main():
     warmup = 15
@@ -171,6 +190,7 @@ def main():
         time.sleep(1)
 
     print("All kernels finished.")
+
 
 if __name__ == "__main__":
     main()

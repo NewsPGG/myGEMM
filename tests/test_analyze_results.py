@@ -3,6 +3,7 @@ import numpy
 import math
 import analyze_results
 
+
 def test_parse_log_valid_data(tmp_path):
     log_content = """
     ## --- 1024x1024x1024 ---
@@ -50,7 +51,9 @@ def test_ci_for_std_bounds():
 def test_compute_stats_nan_handling():
     small_data = [100.0, 102.0, 101.0, 99.0, 100.0]
 
-    mean, std, std_ci, mean_ci, shap_p, dag_p = analyze_results.compute_stats(small_data)
+    mean, std, std_ci, mean_ci, shap_p, dag_p = analyze_results.compute_stats(
+        small_data
+    )
 
     assert mean == pytest.approx(100.4)
     assert math.isnan(dag_p)

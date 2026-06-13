@@ -1,5 +1,6 @@
 import calculate_kernels
 
+
 def test_generate_settings_math_formulas():
     # TS=32, WPT=4, TSDK=32, WIDTH=4
     content = calculate_kernels.generate_settings_for_kernel(5)
