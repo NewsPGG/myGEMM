@@ -166,7 +166,7 @@ def main():
         print(f"Start kernel {kernel} ===")
         try:
             compile_and_run_one(kernel, warmup, measure)
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             print("Warning")
         time.sleep(1)
 
