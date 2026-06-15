@@ -19,7 +19,7 @@ myGEMM.cl: 0.120 s --> 161.32 GFLOPS"""
     assert "4096x4096x4096" in results
     assert "8192x8192x8192" in results
     assert results["4096x4096x4096"] == pytest.approx(160.00)
-    assert results["8192x8192x8192"] == pytest.approx(162.32)
+    assert results["8192x8192x8192"] == pytest.approx(161.32)
 
 
 def test_parse_log_corrupted_data(tmp_path):
