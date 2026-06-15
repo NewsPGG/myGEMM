@@ -155,8 +155,8 @@ def compile_and_run_one(kernel_num, warmup, measure):
 
 
 def main():
-    warmup = 1
-    measure = 1
+    warmup = 15
+    measure = 50
 
     for kernel in range(1, 12):
         print(f"Start kernel {kernel}")
