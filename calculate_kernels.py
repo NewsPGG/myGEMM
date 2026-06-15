@@ -69,34 +69,22 @@ def generate_settings_for_kernel(kernel_num):
         lines.append("#define LPTB ((TSK*WPTM*WPTN)/(TSM))")
 
     if kernel_num == 11:
-        lines.extend([
-            "",
-            "#define RK (RY)"
-        ])
+        lines.extend(["", "#define RK (RY)"])
 
-    lines.extend([
-        "",
-        "#ifdef __OPENCL_VERSION__"
-    ])
+    lines.extend(["", "#ifdef __OPENCL_VERSION__"])
     if width > 1:
-        lines.extend([
-            f"  typedef float{width} floatX;",
-            "  #undef inline",
-            "  #define inline __attribute__((always_inline))",
-            f"  #define cl_init_vec(x) (float{width})((float)(x))",
-            "  #define zeros cl_init_vec(0.0f)"
-        ])
+        lines.extend(
+            [
+                f"  typedef float{width} floatX;",
+                "  #undef inline",
+                "  #define inline __attribute__((always_inline))",
+                f"  #define cl_init_vec(x) (float{width})((float)(x))",
+                "  #define zeros cl_init_vec(0.0f)",
+            ]
+        )
     else:
-        lines.extend([
-            "  typedef float floatX;",
-            "  #define zeros 0.0f"
-        ])
-    lines.extend([
-        "#else",
-        "  typedef float floatX;",
-        "#endif",
-        ""
-    ])
+        lines.extend(["  typedef float floatX;", "  #define zeros 0.0f"])
+    lines.extend(["#else", "  typedef float floatX;", "#endif", ""])
 
     return "\n".join(lines)
 
@@ -133,7 +121,7 @@ def compile_and_run_one(kernel_num, warmup, measure):
     subprocess.run(
         ["g++", "-c", "-x", "c++", "-", "-o", "obj/dummy_clblas.o"],
         input=b"void libclblas(float*, float*, float*, int, int, int, int) {}\n",
-        check=True
+        check=True,
     )
 
     link_cmd = [

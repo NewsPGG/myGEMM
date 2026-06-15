@@ -1,5 +1,6 @@
 import calculate_kernels
 
+
 def test_generate_settings_vector_width_activation():
     content = calculate_kernels.generate_settings_for_kernel(5)
 

@@ -46,8 +46,6 @@ myGEMM.cl: 0.009 s --> 112.00 GFLOPS"""
     assert results["1024x1024x1024"] == pytest.approx(112.00)
 
 
-
-
 def test_ci_for_std_bounds():
     data = [155.0, 162.0, 159.0, 161.0, 158.0, 160.0, 163.0, 157.0]
 
@@ -61,7 +59,9 @@ def test_ci_for_std_bounds():
 def test_compute_stats_zero_variance():
     perfect_data = [500.0] * 10
 
-    mean, std, std_ci, mean_ci, shap_p, dag_p = analyze_results.compute_stats(perfect_data)
+    mean, std, std_ci, mean_ci, shap_p, dag_p = analyze_results.compute_stats(
+        perfect_data
+    )
 
     assert mean == 500.0
     assert std == 0.0
@@ -72,7 +72,9 @@ def test_compute_stats_zero_variance():
 def test_compute_stats_insufficient_data_handling():
     small_data = [510.0, 512.0, 508.0, 515.0, 511.0]
 
-    mean, std, std_ci, mean_ci, shap_p, dag_p = analyze_results.compute_stats(small_data)
+    mean, std, std_ci, mean_ci, shap_p, dag_p = analyze_results.compute_stats(
+        small_data
+    )
 
     assert mean == pytest.approx(511.2)
     assert math.isnan(dag_p)
