@@ -1,5 +1,4 @@
 import subprocess
-import os
 import time
 from pathlib import Path
 
@@ -18,100 +17,88 @@ KERNEL_BASE_CONFIGS = {
 }
 
 
+def fix_opencl_includes():
+    for file_path in Path("src").glob("*.cpp"):
+        if not file_path.exists():
+            continue
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        if "<CL/cl.h>" in content:
+            content = content.replace("<CL/cl.h>", "<OpenCL/opencl.h>")
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(content)
+
+
 def generate_settings_for_kernel(kernel_num):
     cfg = KERNEL_BASE_CONFIGS.get(kernel_num, {"TS": 16, "WIDTH": 1})
+    width = cfg.get("WIDTH", 1)
 
-    ts = cfg.get("TS", 32)
-    wpt = cfg.get("WPT", 8)
-    width = cfg.get("WIDTH", 4)
-    tsdk = cfg.get("TSDK", 16)
-    tsm = cfg.get("TSM", 128)
-    tsn = cfg.get("TSN", 128)
-    tsk = cfg.get("TSK", 16)
-    wptm = cfg.get("WPTM", 8)
-    wptn = cfg.get("WPTN", 8)
+    lines = [
+        f"#define KERNEL {kernel_num}",
+        "",
+        "#define MIN(a,b) (((a) > (b)) ? (b) : (a))",
+        "#define MAX(a,b) (((a) > (b)) ? (a) : (b))",
+        "#define CEIL_DIV(x,y) (((x) + (y) - 1) / (y))",
+        "#define MOD2(x,y) ((x) % (y))",
+        "#define DIV2(x,y) ((x) / (y))",
+        "",
+        "#define TRANSPOSEX 16",
+        "#define TRANSPOSEY 16",
+        "#define PADDINGX 16",
+        "#define PADDINGY 16",
+        "",
+    ]
 
-    rts = ts // wpt
-    lpt = (tsdk * wpt) // ts
-    rtsm = tsm // wptm
-    rtsn = tsn // wptn
-    lpta = (tsk * wptm * wptn) // tsn
-    lptb = (tsk * wptm * wptn) // tsm
+    for key, value in cfg.items():
+        lines.append(f"#define {key} {value}")
 
-    vector_fix = ""
+    lines.append("")
+
+    if "TS" in cfg and "WPT" in cfg:
+        lines.append("#define RTS (TS/WPT)")
+    if "TSDK" in cfg and "WPT" in cfg and "TS" in cfg:
+        lines.append("#define LPT ((TSDK*WPT)/(TS))")
+    if "TSM" in cfg and "WPTM" in cfg:
+        lines.append("#define RTSM (TSM/WPTM)")
+    if "TSN" in cfg and "WPTN" in cfg:
+        lines.append("#define RTSN (TSN/WPTN)")
+    if "TSK" in cfg and "WPTM" in cfg and "WPTN" in cfg and "TSN" in cfg:
+        lines.append("#define LPTA ((TSK*WPTM*WPTN)/(TSN))")
+    if "TSK" in cfg and "WPTM" in cfg and "WPTN" in cfg and "TSM" in cfg:
+        lines.append("#define LPTB ((TSK*WPTM*WPTN)/(TSM))")
+
+    if kernel_num == 11:
+        lines.extend([
+            "",
+            "#define RK (RY)"
+        ])
+
+    lines.extend([
+        "",
+        "#ifdef __OPENCL_VERSION__"
+    ])
     if width > 1:
-        vector_fix = f"""
-#ifdef __OPENCL_VERSION__
-  #undef inline
-  #define inline __attribute__((always_inline))
-  #define cl_init_vec(x) (float{width})((float)(x))
-  #define zeros cl_init_vec(0.0f)
-#endif
-"""
+        lines.extend([
+            f"  typedef float{width} floatX;",
+            "  #undef inline",
+            "  #define inline __attribute__((always_inline))",
+            f"  #define cl_init_vec(x) (float{width})((float)(x))",
+            "  #define zeros cl_init_vec(0.0f)"
+        ])
     else:
-        vector_fix = """
-#ifdef __OPENCL_VERSION__
-  #define zeros 0.0f
-#endif
-"""
+        lines.extend([
+            "  typedef float floatX;",
+            "  #define zeros 0.0f"
+        ])
+    lines.extend([
+        "#else",
+        "  typedef float floatX;",
+        "#endif",
+        ""
+    ])
 
-    content = f"""// AUTO-GENERATED FOR KERNEL {kernel_num}
-#define KERNEL {kernel_num}
-
-// Constants for kernels 1 -- 5
-#define TS {ts}
-
-// Constants for kernels 3, 5
-#define WPT {wpt}
-#define RTS {rts}
-
-// Constants for kernels 4, 7 -- 10
-#define WIDTH {width}
-
-// Constants for kernel 5
-#define TSDK {tsdk}
-#define LPT {lpt}
-
-// Constants for kernels 6 -- 10
-#define TSM {tsm}
-#define TSN {tsn}
-#define TSK {tsk}
-#define WPTM {wptm}
-#define WPTN {wptn}
-#define RTSM {rtsm}
-#define RTSN {rtsn}
-#define LPTA {lpta}
-#define LPTB {lptb}
-
-// Constants for kernel 11
-#define THREADSX 8
-#define THREADSY 8
-#define RX 8
-#define RY 4
-#define RK 4
-
-// Supporting kernels
-#define TRANSPOSEX 16
-#define TRANSPOSEY 16
-#define PADDINGX 16
-#define PADDINGY 16
-
-// Macros
-#define MIN(a,b) (((a) > (b)) ? (b) : (a))
-#define MAX(a,b) (((a) > (b)) ? (a) : (b))
-#define CEIL_DIV(x,y) (((x) + (y) - 1) / (y))
-#define MOD2(x,y) ((x) % (y))
-#define DIV2(x,y) ((x) / (y))
-
-#ifdef __OPENCL_VERSION__
-  typedef float{"" if width == 1 else width} floatX;
-#else
-  typedef float floatX;
-#endif
-
-{vector_fix}
-"""
-    return content
+    return "\n".join(lines)
 
 
 def compile_and_run_one(kernel_num, warmup, measure):
@@ -124,11 +111,14 @@ def compile_and_run_one(kernel_num, warmup, measure):
     with open("src/settings.h", "w") as f:
         f.write(settings_text)
 
+    fix_opencl_includes()
+
     compile_flags = [
         "-c",
         "-O3",
         "-Wall",
-        "-I/System/Library/Frameworks/OpenCL.framework/Headers",
+        "-DCL_SILENCE_DEPRECATION",
+        "-DCL_TARGET_OPENCL_VERSION=120",
         "-include",
         "src/settings.h",
     ]
@@ -140,12 +130,11 @@ def compile_and_run_one(kernel_num, warmup, measure):
         ["g++"] + compile_flags + ["src/clGEMM.cpp", "-o", "obj/clGEMM.o"], check=True
     )
 
-    dummy_obj = Path("obj/dummy_libclblas.o")
-    if not dummy_obj.exists():
-        with open("dummy.cpp", "w") as f:
-            f.write("void libclblas(float*, float*, float*, int, int, int, int) {}\n")
-        subprocess.run(["g++", "-c", "dummy.cpp", "-o", str(dummy_obj)], check=True)
-        os.unlink("dummy.cpp")
+    subprocess.run(
+        ["g++", "-c", "-x", "c++", "-", "-o", "obj/dummy_clblas.o"],
+        input=b"void libclblas(float*, float*, float*, int, int, int, int) {}\n",
+        check=True
+    )
 
     link_cmd = [
         "g++",
@@ -153,7 +142,7 @@ def compile_and_run_one(kernel_num, warmup, measure):
         "-Wall",
         "obj/main.o",
         "obj/clGEMM.o",
-        str(dummy_obj),
+        "obj/dummy_clblas.o",
         "-framework",
         "OpenCL",
         "-o",
@@ -178,16 +167,16 @@ def compile_and_run_one(kernel_num, warmup, measure):
 
 
 def main():
-    warmup = 15
-    measure = 50
+    warmup = 1
+    measure = 1
 
-    for kernel in range(2):
-        print(f"Start kernel {kernel} ===")
+    for kernel in range(1, 12):
+        print(f"Start kernel {kernel}")
         try:
             compile_and_run_one(kernel, warmup, measure)
         except subprocess.CalledProcessError:
-            print("Warning")
-        time.sleep(1)
+            print(f"Error compiling or running kernel {kernel}")
+        time.sleep(3)
 
     print("All kernels finished.")
 
